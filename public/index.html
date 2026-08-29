@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>聊回忆 · 私人聊天回忆助手</title>
+<link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+
+<div id="notice" class="notice hidden">
+  <div class="notice-box">
+    <h2>使用前请了解</h2>
+    <p>请仅上传你自己有权保存的聊天内容。这些内容中可能包含第三方（好友、群成员等）的个人信息，请谨慎处理。</p>
+    <p>所有数据仅保存在<strong>你本机</strong>的数据文件中（<code>data/liaohuiyi.db</code>），不会上传到任何服务器，本版本也不含任何 AI 自动整理功能——只做原文的保存与检索。</p>
+    <p>你可以随时导出或删除自己的数据。</p>
+    <button id="notice-ok" class="btn btn-primary">我知道了，开始使用</button>
+  </div>
+</div>
+
+<header class="topbar">
+  <div class="brand">聊回忆</div>
+  <nav>
+    <button data-nav="home" class="navbtn">首页</button>
+    <button data-nav="import" class="navbtn">新建导入</button>
+    <button data-nav="search" class="navbtn">搜索</button>
+    <button data-nav="trash" class="navbtn">回收站</button>
+    <a class="navbtn" href="/api/export">导出全部数据</a>
+  </nav>
+</header>
+
+<main id="app">
+
+  <section id="view-home" class="view">
+    <h1>我的导入</h1>
+    <div id="home-list" class="card-list"><p class="muted">加载中…</p></div>
+  </section>
+
+  <section id="view-import" class="view hidden">
+    <h1>新建导入</h1>
+
+    <div id="import-step1">
+      <div class="field-row">
+        <label>粘贴聊天文本</label>
+        <textarea id="import-text" rows="10" placeholder="直接粘贴聊天记录文本…"></textarea>
+      </div>
+      <div class="field-row">
+        <label>或上传文件（.txt / .csv，≤10MB）</label>
+        <input type="file" id="import-file" accept=".txt,.csv" />
+      </div>
+      <div id="import-error" class="error hidden"></div>
+      <button id="btn-preview" class="btn btn-primary">解析预览</button>
+    </div>
+
+    <div id="import-step2" class="hidden">
+      <div class="meta-form">
+        <div class="field-row">
+          <label>导入标题 *</label>
+          <input type="text" id="meta-title" placeholder="例如：和阿华的聊天 2026" />
+        </div>
+        <div class="field-row">
+          <label>来源说明</label>
+          <input type="text" id="meta-source" placeholder="例如：微信导出 / 手动粘贴" />
+        </div>
+        <div class="field-row">
+          <label>时区</label>
+          <input type="text" id="meta-timezone" value="local" />
+        </div>
+      </div>
+
+      <div id="preview-warnings" class="warnings hidden"></div>
+
+      <table class="preview-table">
+        <thead>
+          <tr><th>时间</th><th>发送人</th><th>内容</th><th>状态</th></tr>
+        </thead>
+        <tbody id="preview-body"></tbody>
+      </table>
+
+      <div class="actions">
+        <button id="btn-cancel-import" class="btn">取消</button>
+        <button id="btn-confirm-import" class="btn btn-primary">确认保存</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="view-search" class="view hidden">
+    <h1>搜索</h1>
+    <div class="search-form">
+      <input type="text" id="search-q" placeholder="关键词 / 事件线索" />
+      <input type="text" id="search-sender" placeholder="人物（发送人）" />
+      <input type="date" id="search-from" />
+      <input type="date" id="search-to" />
+      <button id="btn-search" class="btn btn-primary">搜索</button>
+    </div>
+    <div id="search-results"></div>
+  </section>
+
+  <section id="view-detail" class="view hidden">
+    <button class="btn back-btn" data-nav="home">← 返回首页</button>
+    <h1 id="detail-title"></h1>
+    <div id="detail-meta" class="muted"></div>
+    <div class="actions">
+      <button id="btn-delete-import" class="btn btn-danger">删除本次导入</button>
+    </div>
+    <div id="detail-timeline"></div>
+  </section>
+
+  <section id="view-trash" class="view hidden">
+    <h1>回收站</h1>
+    <p class="muted">已删除的导入会保留在这里，可以恢复或彻底删除。</p>
+    <div id="trash-list" class="card-list"></div>
+  </section>
+
+</main>
+
+<script src="/app.js"></script>
+</body>
+</html>
