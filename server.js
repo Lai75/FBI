@@ -44,6 +44,6 @@ app.use((err, req, res, next) => {
 });
 
 app.listen(PORT, HOST, () => {
-  console.log(`聊回忆已启动：http://${HOST}:${PORT}`);
+  console.log(`FBI 已启动：http://${HOST}:${PORT}`);
   console.log(SITE_PASSWORD ? '已启用密码保护。' : '未设置 SITE_PASSWORD，无密码保护。');
 });
