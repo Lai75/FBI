@@ -63,6 +63,9 @@
 
   function showView(name) {
     Object.entries(views).forEach(([k, el]) => el.classList.toggle('hidden', k !== name));
+    document.querySelectorAll('.navbtn[data-nav]').forEach((btn) => {
+      btn.classList.toggle('is-active', btn.dataset.nav === name);
+    });
     if (name === 'home') { loadContacts(); loadHome(); }
     if (name === 'trash') loadTrash();
     if (name === 'import') { loadContacts(); resetImportWizard(); }
@@ -98,7 +101,7 @@
     try {
       const imports = await api('/api/imports' + (contactId ? '?contactId=' + encodeURIComponent(contactId) : ''));
       if (imports.length === 0) {
-        listEl.innerHTML = '<p class="muted">还没有任何导入，点击上方"新建导入"开始。</p>';
+        listEl.innerHTML = '<div class="empty-state">还没有任何导入，点击上方"新建导入"开始留住第一段回忆。</div>';
         return;
       }
       listEl.innerHTML = '';
@@ -330,13 +333,33 @@
       const { import: imp, messages } = await api(`/api/imports/${importId}`);
       titleEl.textContent = imp.title;
       metaEl.textContent = `${imp.contact_name || '未分类'} · ${imp.source || '未填写来源'} · 时区 ${imp.timezone || 'local'} · 共 ${messages.length} 条消息${imp.deleted_at ? '（已删除，位于回收站）' : ''}`;
-      timelineEl.innerHTML = messages.map((m) => `
-        <div class="msg-row ${String(m.id) === String(highlightMessageId) ? 'target' : ''}" id="msg-${m.id}">
-          <div class="msg-time">${fmtDate(m.sent_at)}</div>
-          <div class="msg-sender">${escapeHtml(m.sender || '未知')}</div>
-          <div class="msg-content">${escapeHtml(m.content)}${m.needs_review ? ' <span class="badge badge-review">待确认</span>' : ''}</div>
+
+      // 发送人字面为"我"的当作本人，靠右显示；否则退化为出现次数最多的发送人；其余靠左，模拟聊天气泡
+      const counts = {};
+      messages.forEach((m) => {
+        const s = m.sender || '未知';
+        counts[s] = (counts[s] || 0) + 1;
+      });
+      let primarySender = Object.keys(counts).find((s) => s === '我') || null;
+      if (!primarySender) {
+        let max = 0;
+        Object.entries(counts).forEach(([s, c]) => { if (c > max) { max = c; primarySender = s; } });
+      }
+
+      timelineEl.innerHTML = messages.map((m) => {
+        const sender = m.sender || '未知';
+        const isMe = sender === primarySender;
+        const initial = sender.trim().charAt(0) || '?';
+        return `
+        <div class="msg-row ${isMe ? 'me' : 'other'} ${String(m.id) === String(highlightMessageId) ? 'target' : ''}" id="msg-${m.id}">
+          ${!isMe ? `<div class="msg-avatar" aria-hidden="true">${escapeHtml(initial)}</div>` : ''}
+          <div class="msg-bubble-wrap">
+            <div class="msg-meta">${!isMe ? `<span>${escapeHtml(sender)}</span>` : ''}<span>${fmtDate(m.sent_at)}</span></div>
+            <div class="msg-bubble">${escapeHtml(m.content)}${m.needs_review ? ' <span class="badge badge-review">待确认</span>' : ''}</div>
+          </div>
         </div>
-      `).join('');
+      `;
+      }).join('');
       if (highlightMessageId) {
         const target = document.getElementById(`msg-${highlightMessageId}`);
         if (target) target.scrollIntoView({ block: 'center' });
@@ -365,7 +388,7 @@
     try {
       const items = await api('/api/trash');
       if (items.length === 0) {
-        listEl.innerHTML = '<p class="muted">回收站是空的。</p>';
+        listEl.innerHTML = '<div class="empty-state">回收站是空的。</div>';
         return;
       }
       listEl.innerHTML = '';

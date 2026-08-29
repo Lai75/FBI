@@ -19,71 +19,108 @@
 </div>
 
 <header class="topbar">
-  <div class="brand">聊回忆</div>
+  <div class="brand">
+    <svg class="icon brand-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M8 10h8M8 14h5"/>
+      <path d="M21 12c0 4.418-4.03 8-9 8-1.09 0-2.13-.17-3.09-.48L3 21l1.6-4.15C3.6 15.5 3 13.8 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8Z"/>
+    </svg>
+    <span>聊回忆</span>
+  </div>
   <nav>
-    <button data-nav="home" class="navbtn">首页</button>
-    <button data-nav="import" class="navbtn">新建导入</button>
-    <button data-nav="search" class="navbtn">搜索</button>
-    <button data-nav="trash" class="navbtn">回收站</button>
-    <a class="navbtn" href="/api/export">导出全部数据</a>
+    <button data-nav="home" class="navbtn">
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11.5 12 4l9 7.5"/><path d="M5 10v9a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1v-9"/></svg>
+      <span>首页</span>
+    </button>
+    <button data-nav="import" class="navbtn">
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11"/><path d="M7.5 9 12 4.5 16.5 9"/><path d="M4 15.5V18a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2.5"/></svg>
+      <span>新建导入</span>
+    </button>
+    <button data-nav="search" class="navbtn">
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m20 20-4.8-4.8"/></svg>
+      <span>搜索</span>
+    </button>
+    <button data-nav="trash" class="navbtn">
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16"/><path d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/><path d="M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12"/><path d="M10 11v6M14 11v6"/></svg>
+      <span>回收站</span>
+    </button>
+    <a class="navbtn" href="/api/export">
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11"/><path d="M7.5 11 12 15.5 16.5 11"/><path d="M4 15.5V18a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2.5"/></svg>
+      <span>导出全部数据</span>
+    </a>
   </nav>
 </header>
 
 <main id="app">
 
   <section id="view-home" class="view">
-    <h1>我的导入</h1>
-    <div class="field-row">
+    <div class="view-head">
+      <h1>我的导入</h1>
+      <p class="subtitle">这里存着你留住的对话，随时可以回来翻一翻。</p>
+    </div>
+    <div class="field-row field-row-inline">
       <select id="home-contact-filter"><option value="">全部人物</option></select>
     </div>
     <div id="home-list" class="card-list"><p class="muted">加载中…</p></div>
   </section>
 
   <section id="view-import" class="view hidden">
-    <h1>新建导入</h1>
+    <div class="view-head">
+      <h1>新建导入</h1>
+      <p class="subtitle">先粘贴或上传原始记录，确认无误后再保存。</p>
+    </div>
 
     <div id="import-step1">
+      <ol class="steps">
+        <li class="step-item is-current"><span class="step-dot">1</span>粘贴 / 上传</li>
+        <li class="step-item"><span class="step-dot">2</span>确认信息</li>
+      </ol>
       <div class="field-row">
-        <label>粘贴聊天文本</label>
+        <label for="import-text">粘贴聊天文本</label>
         <textarea id="import-text" rows="10" placeholder="直接粘贴聊天记录文本…"></textarea>
       </div>
       <div class="field-row">
-        <label>或上传文件（.txt / .csv，≤10MB）</label>
+        <label for="import-file">或上传文件（.txt / .csv，≤10MB）</label>
         <input type="file" id="import-file" accept=".txt,.csv" />
       </div>
-      <div id="import-error" class="error hidden"></div>
+      <div id="import-error" class="error hidden" role="alert"></div>
       <button id="btn-preview" class="btn btn-primary">解析预览</button>
     </div>
 
     <div id="import-step2" class="hidden">
+      <ol class="steps">
+        <li class="step-item is-done"><span class="step-dot">✓</span>粘贴 / 上传</li>
+        <li class="step-item is-current"><span class="step-dot">2</span>确认信息</li>
+      </ol>
       <div class="meta-form">
         <div class="field-row">
-          <label>导入标题 *</label>
+          <label for="meta-title">导入标题 *</label>
           <input type="text" id="meta-title" placeholder="例如：和阿华的聊天 2026" />
         </div>
         <div class="field-row">
-          <label>来源说明</label>
+          <label for="meta-source">来源说明</label>
           <input type="text" id="meta-source" placeholder="例如：微信导出 / 手动粘贴" />
         </div>
         <div class="field-row">
-          <label>人物（可选）</label>
+          <label for="meta-contact">人物（可选）</label>
           <input type="text" id="meta-contact" list="contact-options" placeholder="例如：零零" />
           <datalist id="contact-options"></datalist>
         </div>
         <div class="field-row">
-          <label>时区</label>
+          <label for="meta-timezone">时区</label>
           <input type="text" id="meta-timezone" value="local" />
         </div>
       </div>
 
       <div id="preview-warnings" class="warnings hidden"></div>
 
-      <table class="preview-table">
-        <thead>
-          <tr><th>时间</th><th>发送人</th><th>内容</th><th>状态</th></tr>
-        </thead>
-        <tbody id="preview-body"></tbody>
-      </table>
+      <div class="table-scroll">
+        <table class="preview-table">
+          <thead>
+            <tr><th>时间</th><th>发送人</th><th>内容</th><th>状态</th></tr>
+          </thead>
+          <tbody id="preview-body"></tbody>
+        </table>
+      </div>
 
       <div class="actions">
         <button id="btn-cancel-import" class="btn">取消</button>
@@ -93,7 +130,10 @@
   </section>
 
   <section id="view-search" class="view hidden">
-    <h1>搜索</h1>
+    <div class="view-head">
+      <h1>搜索</h1>
+      <p class="subtitle">按关键词、人物或时间范围，找回某一段对话。</p>
+    </div>
     <div class="search-form">
       <input type="text" id="search-q" placeholder="关键词 / 事件线索" />
       <input type="text" id="search-sender" placeholder="人物（发送人）" />
@@ -105,18 +145,23 @@
   </section>
 
   <section id="view-detail" class="view hidden">
-    <button class="btn back-btn" data-nav="home">← 返回首页</button>
+    <button class="btn back-btn" data-nav="home">
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 6l-6 6 6 6"/></svg>
+      返回首页
+    </button>
     <h1 id="detail-title"></h1>
     <div id="detail-meta" class="muted"></div>
     <div class="actions">
       <button id="btn-delete-import" class="btn btn-danger">删除本次导入</button>
     </div>
-    <div id="detail-timeline"></div>
+    <div id="detail-timeline" class="timeline"></div>
   </section>
 
   <section id="view-trash" class="view hidden">
-    <h1>回收站</h1>
-    <p class="muted">已删除的导入会保留在这里，可以恢复或彻底删除。</p>
+    <div class="view-head">
+      <h1>回收站</h1>
+      <p class="subtitle">已删除的导入会保留在这里，可以恢复或彻底删除。</p>
+    </div>
     <div id="trash-list" class="card-list"></div>
   </section>
 
