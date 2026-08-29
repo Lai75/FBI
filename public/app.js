@@ -63,9 +63,26 @@
 
   function showView(name) {
     Object.entries(views).forEach(([k, el]) => el.classList.toggle('hidden', k !== name));
-    if (name === 'home') loadHome();
+    if (name === 'home') { loadContacts(); loadHome(); }
     if (name === 'trash') loadTrash();
-    if (name === 'import') resetImportWizard();
+    if (name === 'import') { loadContacts(); resetImportWizard(); }
+  }
+
+  // ---------- 人物 ----------
+  async function loadContacts() {
+    let contacts = [];
+    try {
+      contacts = await api('/api/contacts');
+    } catch (e) { /* 静默失败，不影响其他功能 */ }
+
+    const datalist = document.getElementById('contact-options');
+    datalist.innerHTML = contacts.map((c) => `<option value="${escapeHtml(c.name)}"></option>`).join('');
+
+    const filter = document.getElementById('home-contact-filter');
+    const prevValue = filter.value;
+    filter.innerHTML = '<option value="">全部人物</option>'
+      + contacts.map((c) => `<option value="${c.id}">${escapeHtml(c.name)} (${c.import_count})</option>`).join('');
+    filter.value = prevValue;
   }
 
   document.querySelectorAll('[data-nav]').forEach((btn) => {
@@ -73,11 +90,13 @@
   });
 
   // ---------- 首页 ----------
-  async function loadHome() {
+  document.getElementById('home-contact-filter').addEventListener('change', (e) => loadHome(e.target.value));
+
+  async function loadHome(contactId) {
     const listEl = document.getElementById('home-list');
     listEl.innerHTML = '<p class="muted">加载中…</p>';
     try {
-      const imports = await api('/api/imports');
+      const imports = await api('/api/imports' + (contactId ? '?contactId=' + encodeURIComponent(contactId) : ''));
       if (imports.length === 0) {
         listEl.innerHTML = '<p class="muted">还没有任何导入，点击上方"新建导入"开始。</p>';
         return;
@@ -91,7 +110,7 @@
           : '时间待确认';
         card.innerHTML = `
           <h3>${escapeHtml(imp.title)}</h3>
-          <div class="muted">${escapeHtml(imp.source || '未填写来源')} · ${imp.message_count} 条消息 · ${range}</div>
+          <div class="muted">${escapeHtml(imp.contact_name || '未分类')} · ${escapeHtml(imp.source || '未填写来源')} · ${imp.message_count} 条消息 · ${range}</div>
           <div class="card-actions">
             <button class="btn btn-danger" data-action="delete" data-id="${imp.id}">删除</button>
           </div>
@@ -104,7 +123,7 @@
           e.stopPropagation();
           if (!confirm(`确定删除「${imp.title}」吗？删除后会进入回收站，可在回收站恢复。`)) return;
           await api(`/api/imports/${imp.id}`, { method: 'DELETE' });
-          loadHome();
+          loadHome(document.getElementById('home-contact-filter').value);
         });
         listEl.appendChild(card);
       });
@@ -130,6 +149,7 @@
     document.getElementById('import-file').value = '';
     document.getElementById('meta-title').value = '';
     document.getElementById('meta-source').value = '';
+    document.getElementById('meta-contact').value = '';
     document.getElementById('meta-timezone').value = 'local';
     previewState = [];
   }
@@ -211,6 +231,7 @@
     const payload = {
       title,
       source: document.getElementById('meta-source').value.trim(),
+      contact_name: document.getElementById('meta-contact').value.trim(),
       timezone: document.getElementById('meta-timezone').value.trim() || 'local',
       messages: previewState.map((m) => ({
         sent_at: m.sent_at || null,
@@ -308,7 +329,7 @@
     try {
       const { import: imp, messages } = await api(`/api/imports/${importId}`);
       titleEl.textContent = imp.title;
-      metaEl.textContent = `${imp.source || '未填写来源'} · 时区 ${imp.timezone || 'local'} · 共 ${messages.length} 条消息${imp.deleted_at ? '（已删除，位于回收站）' : ''}`;
+      metaEl.textContent = `${imp.contact_name || '未分类'} · ${imp.source || '未填写来源'} · 时区 ${imp.timezone || 'local'} · 共 ${messages.length} 条消息${imp.deleted_at ? '（已删除，位于回收站）' : ''}`;
       timelineEl.innerHTML = messages.map((m) => `
         <div class="msg-row ${String(m.id) === String(highlightMessageId) ? 'target' : ''}" id="msg-${m.id}">
           <div class="msg-time">${fmtDate(m.sent_at)}</div>

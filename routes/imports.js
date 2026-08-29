@@ -1,6 +1,6 @@
 const express = require('express');
 const multer = require('multer');
-const { db } = require('../lib/db');
+const { db, findOrCreateContact } = require('../lib/db');
 const { parseChatText } = require('../lib/parser');
 
 const router = express.Router();
@@ -57,7 +57,7 @@ router.post('/imports/preview', (req, res, next) => {
 
 // ---- 保存（用户确认预览后）----
 router.post('/imports', express.json({ limit: '15mb' }), (req, res) => {
-  const { title, source, timezone, messages } = req.body || {};
+  const { title, source, timezone, contact_name, messages } = req.body || {};
   if (!title || !title.trim()) {
     return res.status(400).json({ error: '请为本次导入命名。' });
   }
@@ -65,8 +65,10 @@ router.post('/imports', express.json({ limit: '15mb' }), (req, res) => {
     return res.status(400).json({ error: '没有可保存的消息。' });
   }
 
+  const contact = findOrCreateContact(contact_name);
+
   const insertImport = db.prepare(
-    `INSERT INTO imports (title, source, timezone, status, created_at) VALUES (?, ?, ?, 'confirmed', ?)`
+    `INSERT INTO imports (title, source, timezone, status, created_at, contact_id) VALUES (?, ?, ?, 'confirmed', ?, ?)`
   );
   const insertMessage = db.prepare(
     `INSERT INTO messages (import_id, seq, sent_at, sender, content, confirmed, needs_review)
@@ -74,7 +76,7 @@ router.post('/imports', express.json({ limit: '15mb' }), (req, res) => {
   );
 
   const tx = db.transaction((msgs) => {
-    const info = insertImport.run(title.trim(), source || null, timezone || 'local', nowISO());
+    const info = insertImport.run(title.trim(), source || null, timezone || 'local', nowISO(), contact ? contact.id : null);
     const importId = info.lastInsertRowid;
     msgs.forEach((m, idx) => {
       if (!m || !String(m.content || '').trim()) return;
@@ -96,17 +98,27 @@ router.post('/imports', express.json({ limit: '15mb' }), (req, res) => {
 
 // ---- 列表（未删除）----
 router.get('/imports', (req, res) => {
+  const contactId = (req.query.contactId || '').trim();
+  const clauses = ['i.deleted_at IS NULL'];
+  const params = [];
+  if (contactId === 'none') {
+    clauses.push('i.contact_id IS NULL');
+  } else if (contactId) {
+    clauses.push('i.contact_id = ?');
+    params.push(contactId);
+  }
   const rows = db.prepare(`
-    SELECT i.id, i.title, i.source, i.timezone, i.created_at,
+    SELECT i.id, i.title, i.source, i.timezone, i.created_at, i.contact_id, c.name AS contact_name,
            COUNT(m.id) AS message_count,
            MIN(m.sent_at) AS earliest,
            MAX(m.sent_at) AS latest
     FROM imports i
     LEFT JOIN messages m ON m.import_id = i.id
-    WHERE i.deleted_at IS NULL
+    LEFT JOIN contacts c ON c.id = i.contact_id
+    WHERE ${clauses.join(' AND ')}
     GROUP BY i.id
     ORDER BY i.created_at DESC
-  `).all();
+  `).all(...params);
   res.json(rows);
 });
 
@@ -146,7 +158,12 @@ router.get('/export', (req, res) => {
 
 // ---- 详情 ----
 router.get('/imports/:id', (req, res) => {
-  const imp = db.prepare(`SELECT * FROM imports WHERE id = ?`).get(req.params.id);
+  const imp = db.prepare(`
+    SELECT i.*, c.name AS contact_name
+    FROM imports i
+    LEFT JOIN contacts c ON c.id = i.contact_id
+    WHERE i.id = ?
+  `).get(req.params.id);
   if (!imp) return res.status(404).json({ error: '未找到该导入记录。' });
   const messages = db.prepare(`SELECT * FROM messages WHERE import_id = ? ORDER BY seq ASC`).all(req.params.id);
   res.json({ import: imp, messages });

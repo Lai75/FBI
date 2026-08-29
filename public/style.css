@@ -70,7 +70,7 @@ h1 { font-size: 1.4em; margin-top: 0; }
 
 .field-row { margin-bottom: 14px; display: flex; flex-direction: column; gap: 4px; }
 .field-row label { font-size: 0.9em; color: var(--muted); }
-input[type=text], input[type=date], input[type=datetime-local], textarea, input[type=file] {
+input[type=text], input[type=date], input[type=datetime-local], select, textarea, input[type=file] {
   padding: 8px 10px;
   border: 1px solid var(--border);
   border-radius: 6px;

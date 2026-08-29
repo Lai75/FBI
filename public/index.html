@@ -33,6 +33,9 @@
 
   <section id="view-home" class="view">
     <h1>我的导入</h1>
+    <div class="field-row">
+      <select id="home-contact-filter"><option value="">全部人物</option></select>
+    </div>
     <div id="home-list" class="card-list"><p class="muted">加载中…</p></div>
   </section>
 
@@ -61,6 +64,11 @@
         <div class="field-row">
           <label>来源说明</label>
           <input type="text" id="meta-source" placeholder="例如：微信导出 / 手动粘贴" />
+        </div>
+        <div class="field-row">
+          <label>人物（可选）</label>
+          <input type="text" id="meta-contact" list="contact-options" placeholder="例如：零零" />
+          <datalist id="contact-options"></datalist>
         </div>
         <div class="field-row">
           <label>时区</label>
