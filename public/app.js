@@ -86,7 +86,36 @@
     filter.innerHTML = '<option value="">全部人物</option>'
       + contacts.map((c) => `<option value="${c.id}">${escapeHtml(c.name)} (${c.import_count})</option>`).join('');
     filter.value = prevValue;
+
+    renderContactManageList(contacts);
   }
+
+  function renderContactManageList(contacts) {
+    const listEl = document.getElementById('contact-manage-list');
+    if (contacts.length === 0) {
+      listEl.innerHTML = '<div class="empty-state">还没有任何人物。</div>';
+      return;
+    }
+    listEl.innerHTML = '';
+    contacts.forEach((c) => {
+      const card = document.createElement('div');
+      card.className = 'card';
+      card.innerHTML = `
+        <span>${escapeHtml(c.name)} <span class="muted">(${c.import_count} 条导入)</span></span>
+        <button class="btn btn-danger" data-action="delete">删除</button>
+      `;
+      card.querySelector('[data-action="delete"]').addEventListener('click', async () => {
+        if (!confirm(`确定删除人物「${c.name}」吗？删除后会进入回收站，可在回收站恢复。`)) return;
+        await api(`/api/contacts/${c.id}`, { method: 'DELETE' });
+        loadContacts();
+      });
+      listEl.appendChild(card);
+    });
+  }
+
+  document.getElementById('btn-manage-contacts').addEventListener('click', () => {
+    document.getElementById('contact-manage-list').classList.toggle('hidden');
+  });
 
   document.querySelectorAll('[data-nav]').forEach((btn) => {
     btn.addEventListener('click', () => showView(btn.dataset.nav));
@@ -111,9 +140,10 @@
         const range = imp.earliest || imp.latest
           ? `${fmtDate(imp.earliest)} ~ ${fmtDate(imp.latest)}`
           : '时间待确认';
+        const countText = imp.type === 'photo' ? `${imp.photo_count} 张照片` : `${imp.message_count} 条消息`;
         card.innerHTML = `
           <h3>${escapeHtml(imp.title)}</h3>
-          <div class="muted">${escapeHtml(imp.contact_name || '未分类')} · ${escapeHtml(imp.source || '未填写来源')} · ${imp.message_count} 条消息 · ${range}</div>
+          <div class="muted">${escapeHtml(imp.contact_name || '未分类')} · ${escapeHtml(imp.source || '未填写来源')} · ${countText} · ${range}</div>
           <div class="card-actions">
             <button class="btn btn-danger" data-action="delete" data-id="${imp.id}">删除</button>
           </div>
@@ -143,6 +173,8 @@
   const previewWarnings = document.getElementById('preview-warnings');
 
   let previewState = [];
+  let importMode = 'text'; // 'text' | 'photo'
+  let selectedPhotoFiles = [];
 
   function resetImportWizard() {
     step1.classList.remove('hidden');
@@ -150,11 +182,16 @@
     importError.classList.add('hidden');
     document.getElementById('import-text').value = '';
     document.getElementById('import-file').value = '';
+    document.getElementById('import-photos').value = '';
     document.getElementById('meta-title').value = '';
     document.getElementById('meta-source').value = '';
     document.getElementById('meta-contact').value = '';
     document.getElementById('meta-timezone').value = 'local';
     previewState = [];
+    importMode = 'text';
+    selectedPhotoFiles = [];
+    previewWarnings.classList.add('hidden');
+    document.querySelector('.table-scroll').classList.remove('hidden');
   }
 
   document.getElementById('btn-preview').addEventListener('click', async () => {
@@ -162,7 +199,24 @@
     const text = document.getElementById('import-text').value;
     const fileInput = document.getElementById('import-file');
     const file = fileInput.files && fileInput.files[0];
+    const photosInput = document.getElementById('import-photos');
+    const photoFiles = photosInput.files && photosInput.files.length ? Array.from(photosInput.files) : [];
 
+    if (photoFiles.length && !text.trim() && !file) {
+      importMode = 'photo';
+      selectedPhotoFiles = photoFiles;
+      previewWarnings.classList.add('hidden');
+      document.querySelector('.table-scroll').classList.add('hidden');
+      previewBody.innerHTML = '';
+      step1.classList.add('hidden');
+      step2.classList.remove('hidden');
+      if (!document.getElementById('meta-source').value) {
+        document.getElementById('meta-source').value = `${photoFiles.length} 张聊天截图`;
+      }
+      return;
+    }
+
+    importMode = 'text';
     const fd = new FormData();
     if (file) {
       fd.append('file', file);
@@ -175,6 +229,7 @@
       previewState = result.messages.map((m) => ({ ...m }));
       renderPreviewWarnings(result.warnings || []);
       renderPreviewTable();
+      document.querySelector('.table-scroll').classList.remove('hidden');
       step1.classList.add('hidden');
       step2.classList.remove('hidden');
       if (!document.getElementById('meta-source').value && file) {
@@ -231,24 +286,37 @@
       alert('请先填写导入标题。');
       return;
     }
-    const payload = {
-      title,
-      source: document.getElementById('meta-source').value.trim(),
-      contact_name: document.getElementById('meta-contact').value.trim(),
-      timezone: document.getElementById('meta-timezone').value.trim() || 'local',
-      messages: previewState.map((m) => ({
-        sent_at: m.sent_at || null,
-        sender: m.sender ? String(m.sender).trim() : null,
-        content: String(m.content || '').trim(),
-        needs_review: !m.sent_at ? 1 : 0,
-      })).filter((m) => m.content),
-    };
+    const source = document.getElementById('meta-source').value.trim();
+    const contactName = document.getElementById('meta-contact').value.trim();
+
     try {
-      const result = await api('/api/imports', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
+      let result;
+      if (importMode === 'photo') {
+        const fd = new FormData();
+        fd.append('title', title);
+        fd.append('source', source);
+        fd.append('contact_name', contactName);
+        selectedPhotoFiles.forEach((f) => fd.append('photos', f));
+        result = await api('/api/imports/photos', { method: 'POST', body: fd });
+      } else {
+        const payload = {
+          title,
+          source,
+          contact_name: contactName,
+          timezone: document.getElementById('meta-timezone').value.trim() || 'local',
+          messages: previewState.map((m) => ({
+            sent_at: m.sent_at || null,
+            sender: m.sender ? String(m.sender).trim() : null,
+            content: String(m.content || '').trim(),
+            needs_review: !m.sent_at ? 1 : 0,
+          })).filter((m) => m.content),
+        };
+        result = await api('/api/imports', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+      }
       resetImportWizard();
       openDetail(result.id);
     } catch (err) {
@@ -330,8 +398,15 @@
     metaEl.textContent = '';
     timelineEl.innerHTML = '';
     try {
-      const { import: imp, messages } = await api(`/api/imports/${importId}`);
+      const { import: imp, messages, photos } = await api(`/api/imports/${importId}`);
       titleEl.textContent = imp.title;
+
+      if (imp.type === 'photo') {
+        metaEl.textContent = `${imp.contact_name || '未分类'} · ${imp.source || '未填写来源'} · 共 ${photos.length} 张照片${imp.deleted_at ? '（已删除，位于回收站）' : ''}`;
+        renderPhotoGrid(photos);
+        return;
+      }
+
       metaEl.textContent = `${imp.contact_name || '未分类'} · ${imp.source || '未填写来源'} · 时区 ${imp.timezone || 'local'} · 共 ${messages.length} 条消息${imp.deleted_at ? '（已删除，位于回收站）' : ''}`;
 
       // 发送人字面为"我"的当作本人，靠右显示；否则退化为出现次数最多的发送人；其余靠左，模拟聊天气泡
@@ -370,6 +445,28 @@
     }
   }
 
+  function renderPhotoGrid(photos) {
+    const timelineEl = document.getElementById('detail-timeline');
+    if (photos.length === 0) {
+      timelineEl.innerHTML = '<div class="empty-state">这批导入里没有照片了。</div>';
+      return;
+    }
+    timelineEl.innerHTML = `<div class="photo-grid">${photos.map((p) => `
+      <div class="photo-item" data-photo-id="${p.id}">
+        <img src="/api/photos/${p.id}/file" alt="${escapeHtml(p.filename)}" loading="lazy" />
+        <button class="photo-delete" data-action="delete-photo" title="删除这张照片" aria-label="删除这张照片">×</button>
+      </div>
+    `).join('')}</div>`;
+    timelineEl.querySelectorAll('[data-action="delete-photo"]').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        if (!confirm('确定删除这张照片吗？删除后会进入回收站，可在回收站恢复。')) return;
+        const item = btn.closest('.photo-item');
+        await api(`/api/photos/${item.dataset.photoId}`, { method: 'DELETE' });
+        item.remove();
+      });
+    });
+  }
+
   function showViewOnly(name) {
     Object.entries(views).forEach(([k, el]) => el.classList.toggle('hidden', k !== name));
   }
@@ -382,40 +479,67 @@
   });
 
   // ---------- 回收站 ----------
+  function renderTrashSection(listEl, items, emptyText, { label, restoreUrl, purgeUrl, confirmLabel }) {
+    if (items.length === 0) {
+      listEl.innerHTML = `<div class="empty-state">${emptyText}</div>`;
+      return;
+    }
+    listEl.innerHTML = '';
+    items.forEach((item) => {
+      const card = document.createElement('div');
+      card.className = 'card';
+      card.innerHTML = `
+        <h3>${escapeHtml(label(item))}</h3>
+        <div class="muted">删除于 ${fmtDate(item.deleted_at)}</div>
+        <div class="card-actions">
+          <button class="btn btn-primary" data-action="restore">恢复</button>
+          <button class="btn btn-danger" data-action="purge">彻底删除</button>
+        </div>
+      `;
+      card.querySelector('[data-action="restore"]').addEventListener('click', async () => {
+        await api(restoreUrl(item), { method: 'POST' });
+        loadTrash();
+      });
+      card.querySelector('[data-action="purge"]').addEventListener('click', async () => {
+        if (!confirm(`彻底删除${confirmLabel(item)}？此操作无法恢复。`)) return;
+        await api(purgeUrl(item), { method: 'DELETE' });
+        loadTrash();
+      });
+      listEl.appendChild(card);
+    });
+  }
+
   async function loadTrash() {
-    const listEl = document.getElementById('trash-list');
-    listEl.innerHTML = '<p class="muted">加载中…</p>';
+    const importsEl = document.getElementById('trash-list');
+    const contactsEl = document.getElementById('trash-contacts-list');
+    const photosEl = document.getElementById('trash-photos-list');
+    importsEl.innerHTML = contactsEl.innerHTML = photosEl.innerHTML = '<p class="muted">加载中…</p>';
     try {
-      const items = await api('/api/trash');
-      if (items.length === 0) {
-        listEl.innerHTML = '<div class="empty-state">回收站是空的。</div>';
-        return;
-      }
-      listEl.innerHTML = '';
-      items.forEach((imp) => {
-        const card = document.createElement('div');
-        card.className = 'card';
-        card.innerHTML = `
-          <h3>${escapeHtml(imp.title)}</h3>
-          <div class="muted">${escapeHtml(imp.source || '')} · ${imp.message_count} 条消息 · 删除于 ${fmtDate(imp.deleted_at)}</div>
-          <div class="card-actions">
-            <button class="btn btn-primary" data-action="restore">恢复</button>
-            <button class="btn btn-danger" data-action="purge">彻底删除</button>
-          </div>
-        `;
-        card.querySelector('[data-action="restore"]').addEventListener('click', async () => {
-          await api(`/api/imports/${imp.id}/restore`, { method: 'POST' });
-          loadTrash();
-        });
-        card.querySelector('[data-action="purge"]').addEventListener('click', async () => {
-          if (!confirm(`彻底删除「${imp.title}」？此操作无法恢复。`)) return;
-          await api(`/api/imports/${imp.id}/purge`, { method: 'DELETE' });
-          loadTrash();
-        });
-        listEl.appendChild(card);
+      const [imports, contacts, photos] = await Promise.all([
+        api('/api/trash'),
+        api('/api/contacts/trash'),
+        api('/api/photos/trash'),
+      ]);
+      renderTrashSection(importsEl, imports, '导入回收站是空的。', {
+        label: (imp) => `${imp.title}（${imp.type === 'photo' ? imp.photo_count + ' 张照片' : imp.message_count + ' 条消息'}）`,
+        restoreUrl: (imp) => `/api/imports/${imp.id}/restore`,
+        purgeUrl: (imp) => `/api/imports/${imp.id}/purge`,
+        confirmLabel: (imp) => `「${imp.title}」`,
+      });
+      renderTrashSection(contactsEl, contacts, '人物回收站是空的。', {
+        label: (c) => c.name,
+        restoreUrl: (c) => `/api/contacts/${c.id}/restore`,
+        purgeUrl: (c) => `/api/contacts/${c.id}/purge`,
+        confirmLabel: (c) => `人物「${c.name}」`,
+      });
+      renderTrashSection(photosEl, photos, '照片回收站是空的。', {
+        label: (p) => `${p.filename}（来自「${p.import_title}」）`,
+        restoreUrl: (p) => `/api/photos/${p.id}/restore`,
+        purgeUrl: (p) => `/api/photos/${p.id}/purge`,
+        confirmLabel: (p) => `照片「${p.filename}」`,
       });
     } catch (err) {
-      listEl.innerHTML = `<p class="error">${escapeHtml(err.message)}</p>`;
+      importsEl.innerHTML = `<p class="error">${escapeHtml(err.message)}</p>`;
     }
   }
 

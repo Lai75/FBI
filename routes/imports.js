@@ -1,9 +1,12 @@
 const express = require('express');
 const multer = require('multer');
-const { db, findOrCreateContact } = require('../lib/db');
+const fs = require('fs');
+const path = require('path');
+const { db, findOrCreateContact, DATA_DIR } = require('../lib/db');
 const { parseChatText } = require('../lib/parser');
 
 const router = express.Router();
+const PHOTOS_DIR = path.join(DATA_DIR, 'photos');
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 10 * 1024 * 1024 }, // 10MB，与需求文档一致
@@ -108,12 +111,14 @@ router.get('/imports', (req, res) => {
     params.push(contactId);
   }
   const rows = db.prepare(`
-    SELECT i.id, i.title, i.source, i.timezone, i.created_at, i.contact_id, c.name AS contact_name,
-           COUNT(m.id) AS message_count,
+    SELECT i.id, i.title, i.source, i.timezone, i.created_at, i.contact_id, i.type, c.name AS contact_name,
+           COUNT(DISTINCT m.id) AS message_count,
+           COUNT(DISTINCT CASE WHEN p.deleted_at IS NULL THEN p.id END) AS photo_count,
            MIN(m.sent_at) AS earliest,
            MAX(m.sent_at) AS latest
     FROM imports i
     LEFT JOIN messages m ON m.import_id = i.id
+    LEFT JOIN photos p ON p.import_id = i.id
     LEFT JOIN contacts c ON c.id = i.contact_id
     WHERE ${clauses.join(' AND ')}
     GROUP BY i.id
@@ -125,9 +130,12 @@ router.get('/imports', (req, res) => {
 // ---- 回收站 ----
 router.get('/trash', (req, res) => {
   const rows = db.prepare(`
-    SELECT i.id, i.title, i.source, i.deleted_at, COUNT(m.id) AS message_count
+    SELECT i.id, i.title, i.source, i.deleted_at, i.type,
+           COUNT(DISTINCT m.id) AS message_count,
+           COUNT(DISTINCT p.id) AS photo_count
     FROM imports i
     LEFT JOIN messages m ON m.import_id = i.id
+    LEFT JOIN photos p ON p.import_id = i.id
     WHERE i.deleted_at IS NOT NULL
     GROUP BY i.id
     ORDER BY i.deleted_at DESC
@@ -140,15 +148,19 @@ router.get('/export', (req, res) => {
   const imports = db.prepare(`SELECT * FROM imports WHERE deleted_at IS NULL ORDER BY created_at ASC`).all();
   const importIds = imports.map((i) => i.id);
   let messages = [];
+  let photos = [];
   if (importIds.length) {
     const placeholders = importIds.map(() => '?').join(',');
     messages = db.prepare(`SELECT * FROM messages WHERE import_id IN (${placeholders}) ORDER BY import_id, seq`).all(...importIds);
+    photos = db.prepare(`SELECT id, import_id, seq, filename, stored_name FROM photos WHERE import_id IN (${placeholders}) AND deleted_at IS NULL ORDER BY import_id, seq`).all(...importIds);
   }
   const payload = {
     exported_at: nowISO(),
+    note: '照片本体不含在此 JSON 里，只有文件名记录；照片文件在 data/photos/ 目录下（按 stored_name 对应）。',
     imports: imports.map((imp) => ({
       ...imp,
       messages: messages.filter((m) => m.import_id === imp.id),
+      photos: photos.filter((p) => p.import_id === imp.id),
     })),
   };
   res.setHeader('Content-Disposition', `attachment; filename="liaohuiyi-export-${Date.now()}.json"`);
@@ -166,7 +178,8 @@ router.get('/imports/:id', (req, res) => {
   `).get(req.params.id);
   if (!imp) return res.status(404).json({ error: '未找到该导入记录。' });
   const messages = db.prepare(`SELECT * FROM messages WHERE import_id = ? ORDER BY seq ASC`).all(req.params.id);
-  res.json({ import: imp, messages });
+  const photos = db.prepare(`SELECT * FROM photos WHERE import_id = ? AND deleted_at IS NULL ORDER BY seq ASC`).all(req.params.id);
+  res.json({ import: imp, messages, photos });
 });
 
 // ---- 消息上下文（前后若干条）----
@@ -200,7 +213,9 @@ router.post('/imports/:id/restore', (req, res) => {
 router.delete('/imports/:id/purge', (req, res) => {
   const imp = db.prepare(`SELECT * FROM imports WHERE id = ? AND deleted_at IS NOT NULL`).get(req.params.id);
   if (!imp) return res.status(404).json({ error: '只能彻底删除回收站中的记录，请先删除该导入。' });
-  db.prepare(`DELETE FROM imports WHERE id = ?`).run(req.params.id);
+  const photos = db.prepare(`SELECT stored_name FROM photos WHERE import_id = ?`).all(req.params.id);
+  db.prepare(`DELETE FROM imports WHERE id = ?`).run(req.params.id); // photos 行随 ON DELETE CASCADE 一起清掉
+  photos.forEach((p) => fs.unlink(path.join(PHOTOS_DIR, p.stored_name), () => {}));
   res.json({ ok: true });
 });
 

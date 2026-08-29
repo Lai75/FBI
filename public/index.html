@@ -57,9 +57,11 @@
       <h1>我的导入</h1>
       <p class="subtitle">这里存着你留住的对话，随时可以回来翻一翻。</p>
     </div>
-    <div class="field-row field-row-inline">
+    <div class="field-row field-row-inline contact-filter-row">
       <select id="home-contact-filter"><option value="">全部人物</option></select>
+      <button id="btn-manage-contacts" class="btn" type="button">管理人物</button>
     </div>
+    <div id="contact-manage-list" class="card-list hidden"></div>
     <div id="home-list" class="card-list"><p class="muted">加载中…</p></div>
   </section>
 
@@ -81,6 +83,10 @@
       <div class="field-row">
         <label for="import-file">或上传文件（.txt / .csv，≤10MB）</label>
         <input type="file" id="import-file" accept=".txt,.csv" />
+      </div>
+      <div class="field-row">
+        <label for="import-photos">或上传聊天截图（可多选，每张 ≤10MB）</label>
+        <input type="file" id="import-photos" accept="image/*" multiple />
       </div>
       <div id="import-error" class="error hidden" role="alert"></div>
       <button id="btn-preview" class="btn btn-primary">解析预览</button>
@@ -160,9 +166,14 @@
   <section id="view-trash" class="view hidden">
     <div class="view-head">
       <h1>回收站</h1>
-      <p class="subtitle">已删除的导入会保留在这里，可以恢复或彻底删除。</p>
+      <p class="subtitle">删除的导入、人物、照片都会保留在这里，可以恢复或彻底删除。</p>
     </div>
+    <h2 class="trash-section-title">导入</h2>
     <div id="trash-list" class="card-list"></div>
+    <h2 class="trash-section-title">人物</h2>
+    <div id="trash-contacts-list" class="card-list"></div>
+    <h2 class="trash-section-title">照片</h2>
+    <div id="trash-photos-list" class="card-list"></div>
   </section>
 
 </main>

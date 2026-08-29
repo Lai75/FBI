@@ -334,3 +334,28 @@ textarea { resize: vertical; min-height: unset; }
   box-shadow: var(--shadow-md);
 }
 .notice-box h2 { margin-top: 0; }
+
+/* ---------- Contact filter row / manage list ---------- */
+.contact-filter-row { flex-direction: row; max-width: none; }
+.contact-filter-row select { flex: 0 0 auto; }
+#contact-manage-list { margin-bottom: var(--space-4); }
+#contact-manage-list .card { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; cursor: default; }
+#contact-manage-list .card:hover { border-color: var(--border); box-shadow: none; }
+
+/* ---------- Trash sections ---------- */
+.trash-section-title { font-size: 1em; margin: var(--space-5) 0 var(--space-2); color: var(--muted); }
+.trash-section-title:first-of-type { margin-top: 0; }
+
+/* ---------- Photo grid ---------- */
+.photo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: var(--space-3); }
+.photo-item { position: relative; border-radius: var(--radius-md); overflow: hidden; background: var(--surface-alt); box-shadow: var(--shadow-sm); }
+.photo-item img { display: block; width: 100%; height: 160px; object-fit: cover; }
+.photo-item .photo-delete {
+  position: absolute; top: 6px; right: 6px;
+  background: rgba(20, 16, 10, 0.55); color: #fff;
+  border: none; border-radius: 50%;
+  width: 26px; height: 26px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.9em; line-height: 1;
+}
+.photo-item .photo-delete:hover { background: rgba(20, 16, 10, 0.8); }

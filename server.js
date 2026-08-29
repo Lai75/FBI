@@ -5,6 +5,7 @@ const crypto = require('crypto');
 const importsRouter = require('./routes/imports');
 const searchRouter = require('./routes/search');
 const contactsRouter = require('./routes/contacts');
+const photosRouter = require('./routes/photos');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -33,6 +34,7 @@ if (SITE_PASSWORD) {
 app.use('/api', importsRouter);
 app.use('/api', searchRouter);
 app.use('/api', contactsRouter);
+app.use('/api', photosRouter);
 
 app.use(express.static(path.join(__dirname, 'public')));
 
