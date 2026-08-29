@@ -394,9 +394,13 @@
     const titleEl = document.getElementById('detail-title');
     const metaEl = document.getElementById('detail-meta');
     const timelineEl = document.getElementById('detail-timeline');
+    const addTextBox = document.getElementById('detail-add-text');
+    const addPhotosBox = document.getElementById('detail-add-photos');
     titleEl.textContent = '加载中…';
     metaEl.textContent = '';
     timelineEl.innerHTML = '';
+    addTextBox.classList.add('hidden');
+    addPhotosBox.classList.add('hidden');
     try {
       const { import: imp, messages, photos } = await api(`/api/imports/${importId}`);
       titleEl.textContent = imp.title;
@@ -404,8 +408,11 @@
       if (imp.type === 'photo') {
         metaEl.textContent = `${imp.contact_name || '未分类'} · ${imp.source || '未填写来源'} · 共 ${photos.length} 张照片${imp.deleted_at ? '（已删除，位于回收站）' : ''}`;
         renderPhotoGrid(photos);
+        if (!imp.deleted_at) addPhotosBox.classList.remove('hidden');
         return;
       }
+
+      if (!imp.deleted_at) addTextBox.classList.remove('hidden');
 
       metaEl.textContent = `${imp.contact_name || '未分类'} · ${imp.source || '未填写来源'} · 时区 ${imp.timezone || 'local'} · 共 ${messages.length} 条消息${imp.deleted_at ? '（已删除，位于回收站）' : ''}`;
 
@@ -453,7 +460,7 @@
     }
     timelineEl.innerHTML = `<div class="photo-grid">${photos.map((p) => `
       <div class="photo-item" data-photo-id="${p.id}">
-        <img src="/api/photos/${p.id}/file" alt="${escapeHtml(p.filename)}" loading="lazy" />
+        <img src="/api/photos/file/${encodeURIComponent(p.stored_name)}" alt="${escapeHtml(p.filename)}" loading="lazy" />
         <button class="photo-delete" data-action="delete-photo" title="删除这张照片" aria-label="删除这张照片">×</button>
       </div>
     `).join('')}</div>`;
@@ -476,6 +483,43 @@
     if (!confirm('确定删除本次导入吗？删除后会进入回收站。')) return;
     await api(`/api/imports/${currentDetailImportId}`, { method: 'DELETE' });
     showView('home');
+  });
+
+  document.getElementById('btn-add-text').addEventListener('click', async () => {
+    if (!currentDetailImportId) return;
+    const input = document.getElementById('add-text-input');
+    const text = input.value;
+    if (!text.trim()) { alert('请先粘贴要追加的内容。'); return; }
+    try {
+      const result = await api(`/api/imports/${currentDetailImportId}/messages`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text }),
+      });
+      input.value = '';
+      openDetail(currentDetailImportId);
+      if (result.warnings && result.warnings.length) {
+        alert(`已追加 ${result.added} 条消息，但有 ${result.warnings.length} 条提示：\n` + result.warnings.slice(0, 5).join('\n'));
+      }
+    } catch (err) {
+      alert('追加失败：' + err.message);
+    }
+  });
+
+  document.getElementById('btn-add-photos').addEventListener('click', async () => {
+    if (!currentDetailImportId) return;
+    const input = document.getElementById('add-photos-input');
+    const files = input.files && input.files.length ? Array.from(input.files) : [];
+    if (!files.length) { alert('请先选择要添加的照片。'); return; }
+    const fd = new FormData();
+    files.forEach((f) => fd.append('photos', f));
+    try {
+      await api(`/api/imports/${currentDetailImportId}/photos`, { method: 'POST', body: fd });
+      input.value = '';
+      openDetail(currentDetailImportId);
+    } catch (err) {
+      alert('添加失败：' + err.message);
+    }
   });
 
   // ---------- 回收站 ----------

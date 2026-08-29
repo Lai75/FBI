@@ -99,6 +99,34 @@ router.post('/imports', express.json({ limit: '15mb' }), (req, res) => {
   res.status(201).json({ id: importId });
 });
 
+// ---- 追加消息（往已有的文字类导入里继续添加）----
+router.post('/imports/:id/messages', express.json({ limit: '15mb' }), (req, res) => {
+  const imp = db.prepare(`SELECT * FROM imports WHERE id = ? AND deleted_at IS NULL`).get(req.params.id);
+  if (!imp) return res.status(404).json({ error: '未找到该导入记录（可能已被删除）。' });
+  if (imp.type === 'photo') return res.status(400).json({ error: '这是照片记录，请使用照片上传追加照片。' });
+
+  const text = (req.body && req.body.text) || '';
+  if (!text.trim()) return res.status(400).json({ error: '请输入要追加的聊天内容。' });
+
+  const result = parseChatText({ text, filename: '' });
+  if (result.messages.length === 0) {
+    return res.status(400).json({ error: '未能从内容中解析出任何消息。', warnings: result.warnings });
+  }
+
+  const maxSeq = db.prepare(`SELECT COALESCE(MAX(seq), -1) AS m FROM messages WHERE import_id = ?`).get(imp.id).m;
+  const insertMessage = db.prepare(
+    `INSERT INTO messages (import_id, seq, sent_at, sender, content, confirmed, needs_review)
+     VALUES (?, ?, ?, ?, ?, 1, ?)`
+  );
+  const tx = db.transaction((msgs) => {
+    msgs.forEach((m, idx) => {
+      insertMessage.run(imp.id, maxSeq + 1 + idx, m.sent_at || null, m.sender ? String(m.sender).trim() : null, String(m.content).trim(), m.needs_review ? 1 : 0);
+    });
+  });
+  tx(result.messages);
+  res.json({ ok: true, added: result.messages.length, warnings: result.warnings });
+});
+
 // ---- 列表（未删除）----
 router.get('/imports', (req, res) => {
   const contactId = (req.query.contactId || '').trim();

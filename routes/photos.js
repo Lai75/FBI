@@ -82,9 +82,46 @@ router.post('/imports/photos', (req, res, next) => {
   res.status(201).json({ id: importId });
 });
 
-// ---- 单张照片文件 ----
-router.get('/photos/:id/file', (req, res) => {
-  const photo = db.prepare(`SELECT * FROM photos WHERE id = ?`).get(req.params.id);
+// ---- 追加照片（往已有的照片类导入里继续添加）----
+router.post('/imports/:id/photos', (req, res, next) => {
+  upload.array('photos', 50)(req, res, (err) => {
+    if (err) {
+      cleanupFiles(req.files);
+      const msg = err.code === 'LIMIT_FILE_SIZE' ? '单张照片超过 10MB 上限。' : err.message;
+      return res.status(400).json({ error: msg });
+    }
+    next();
+  });
+}, (req, res) => {
+  const imp = db.prepare(`SELECT * FROM imports WHERE id = ? AND deleted_at IS NULL`).get(req.params.id);
+  if (!imp) {
+    cleanupFiles(req.files);
+    return res.status(404).json({ error: '未找到该导入记录（可能已被删除）。' });
+  }
+  if (imp.type !== 'photo') {
+    cleanupFiles(req.files);
+    return res.status(400).json({ error: '这不是照片记录，请使用文字追加。' });
+  }
+  if (!req.files || req.files.length === 0) {
+    return res.status(400).json({ error: '请至少选择一张照片。' });
+  }
+
+  const maxSeq = db.prepare(`SELECT COALESCE(MAX(seq), -1) AS m FROM photos WHERE import_id = ?`).get(imp.id).m;
+  const insertPhoto = db.prepare(
+    `INSERT INTO photos (import_id, seq, filename, stored_name, mime_type, size, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)`
+  );
+  const tx = db.transaction((files) => {
+    files.forEach((f, idx) => {
+      insertPhoto.run(imp.id, maxSeq + 1 + idx, f.originalname, f.filename, f.mimetype, f.size, nowISO());
+    });
+  });
+  tx(req.files);
+  res.json({ ok: true, added: req.files.length });
+});
+
+// ---- 单张照片文件（用不可猜测的 stored_name 取，而非可枚举的自增 id）----
+router.get('/photos/file/:storedName', (req, res) => {
+  const photo = db.prepare(`SELECT * FROM photos WHERE stored_name = ? AND deleted_at IS NULL`).get(req.params.storedName);
   if (!photo) return res.status(404).end();
   res.sendFile(path.join(PHOTOS_DIR, photo.stored_name));
 });

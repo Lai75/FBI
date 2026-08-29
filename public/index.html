@@ -163,6 +163,26 @@
       <button id="btn-delete-import" class="btn btn-danger">删除本次导入</button>
     </div>
     <div id="detail-timeline" class="timeline"></div>
+
+    <div id="detail-add-text" class="add-box hidden">
+      <div class="field-row">
+        <label for="add-text-input">继续添加聊天内容</label>
+        <textarea id="add-text-input" rows="4" placeholder="粘贴要追加的聊天内容…"></textarea>
+      </div>
+      <div class="actions">
+        <button id="btn-add-text" class="btn btn-primary">追加消息</button>
+      </div>
+    </div>
+
+    <div id="detail-add-photos" class="add-box hidden">
+      <div class="field-row">
+        <label for="add-photos-input">继续添加照片</label>
+        <input type="file" id="add-photos-input" accept="image/*" multiple />
+      </div>
+      <div class="actions">
+        <button id="btn-add-photos" class="btn btn-primary">添加照片</button>
+      </div>
+    </div>
   </section>
 
   <section id="view-trash" class="view hidden">
