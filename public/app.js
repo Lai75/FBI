@@ -464,6 +464,9 @@
         <button class="photo-delete" data-action="delete-photo" title="删除这张照片" aria-label="删除这张照片">×</button>
       </div>
     `).join('')}</div>`;
+    timelineEl.querySelectorAll('.photo-item img').forEach((img) => {
+      img.addEventListener('click', () => openLightbox(img.src, img.alt));
+    });
     timelineEl.querySelectorAll('[data-action="delete-photo"]').forEach((btn) => {
       btn.addEventListener('click', async () => {
         if (!confirm('确定删除这张照片吗？删除后会进入回收站，可在回收站恢复。')) return;
@@ -473,6 +476,23 @@
       });
     });
   }
+
+  // ---------- 照片大图查看 ----------
+  const lightbox = document.getElementById('lightbox');
+  const lightboxImg = document.getElementById('lightbox-img');
+  function openLightbox(src, alt) {
+    lightboxImg.src = src;
+    lightboxImg.alt = alt || '';
+    lightbox.classList.remove('hidden');
+  }
+  function closeLightbox() {
+    lightbox.classList.add('hidden');
+    lightboxImg.src = '';
+  }
+  lightbox.addEventListener('click', closeLightbox);
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !lightbox.classList.contains('hidden')) closeLightbox();
+  });
 
   function showViewOnly(name) {
     Object.entries(views).forEach(([k, el]) => el.classList.toggle('hidden', k !== name));
